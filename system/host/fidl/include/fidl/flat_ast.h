@@ -773,10 +773,14 @@ struct Interface : public Decl {
         Method(std::unique_ptr<raw::AttributeList> attributes,
                std::unique_ptr<raw::Ordinal> ordinal, SourceLocation name,
                Struct* maybe_request,
-               Struct* maybe_response)
+               Struct* maybe_response,
+               std::unique_ptr<Type> maybe_error)
             : attributes(std::move(attributes)), ordinal(std::move(ordinal)), name(std::move(name)),
-              maybe_request(maybe_request), maybe_response(maybe_response) {
+              maybe_request(maybe_request), maybe_response(maybe_response), maybe_error(std::move(maybe_error)) {
             assert(this->maybe_request != nullptr || this->maybe_response != nullptr);
+            if (maybe_error) {
+                assert(this->maybe_request != nullptr && this->maybe_response != nullptr);
+            }
         }
 
         std::unique_ptr<raw::AttributeList> attributes;
@@ -784,6 +788,7 @@ struct Interface : public Decl {
         SourceLocation name;
         Struct* maybe_request;
         Struct* maybe_response;
+        std::unique_ptr<Type> maybe_error;
     };
 
     Interface(std::unique_ptr<raw::AttributeList> attributes, Name name,

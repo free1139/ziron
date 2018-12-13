@@ -21,6 +21,7 @@ EXAMPLE_FILES := \
     $(EXAMPLE_DIR)/empty.fidl \
     $(EXAMPLE_DIR)/enums.fidl \
     $(EXAMPLE_DIR)/events.fidl \
+    $(EXAMPLE_DIR)/errors.fidl \
     $(EXAMPLE_DIR)/example-0.fidl \
     $(EXAMPLE_DIR)/example-1.fidl \
     $(EXAMPLE_DIR)/example-2.fidl \
@@ -65,6 +66,7 @@ MODULE_SRCS := \
     $(LOCAL_DIR)/attributes_tests.cpp \
     $(LOCAL_DIR)/consts_tests.cpp \
     $(LOCAL_DIR)/enums_tests.cpp \
+    $(LOCAL_DIR)/errors_tests.cpp \
     $(LOCAL_DIR)/flat_ast_tests.cpp \
     $(LOCAL_DIR)/formatter_unittests.cpp \
     $(LOCAL_DIR)/json_generator_tests.cpp \

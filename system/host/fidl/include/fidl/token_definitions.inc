@@ -62,6 +62,8 @@ KEYWORD(Struct, "struct")
 KEYWORD(Table, "table")
 KEYWORD(Union, "union")
 
+KEYWORD(Error, "error")
+
 KEYWORD(True, "true")
 KEYWORD(False, "false")
 

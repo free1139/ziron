@@ -1123,11 +1123,18 @@ bool Library::ConsumeInterfaceDeclaration(
                 return false;
         }
 
+        std::unique_ptr<Type> maybe_error = nullptr;
+        if (method->maybe_error != nullptr) {
+            auto location = method->maybe_error->location();
+            if (!ConsumeType(std::move(method->maybe_error), location, &maybe_error))
+                return false;
+        }
+
         assert(maybe_request != nullptr || maybe_response != nullptr);
         methods.emplace_back(std::move(attributes),
                              std::move(ordinal_literal),
                              std::move(method_name), std::move(maybe_request),
-                             std::move(maybe_response));
+                             std::move(maybe_response), std::move(maybe_error));
     }
 
     interface_declarations_.push_back(
