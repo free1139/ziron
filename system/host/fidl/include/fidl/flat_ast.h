@@ -22,6 +22,7 @@
 #include "error_reporter.h"
 #include "raw_ast.h"
 #include "type_shape.h"
+#include "virtual_source_file.h"
 
 namespace fidl {
 namespace flat {
@@ -702,7 +703,7 @@ struct Struct : public Decl {
     }
 
     std::vector<Member> members;
-    const bool anonymous;
+    bool anonymous;
     TypeShape typeshape;
     bool recursive = false;
 };
@@ -773,14 +774,10 @@ struct Interface : public Decl {
         Method(std::unique_ptr<raw::AttributeList> attributes,
                std::unique_ptr<raw::Ordinal> ordinal, SourceLocation name,
                Struct* maybe_request,
-               Struct* maybe_response,
-               std::unique_ptr<Type> maybe_error)
+               Struct* maybe_response)
             : attributes(std::move(attributes)), ordinal(std::move(ordinal)), name(std::move(name)),
-              maybe_request(maybe_request), maybe_response(maybe_response), maybe_error(std::move(maybe_error)) {
+              maybe_request(maybe_request), maybe_response(maybe_response) {
             assert(this->maybe_request != nullptr || this->maybe_response != nullptr);
-            if (maybe_error) {
-                assert(this->maybe_request != nullptr && this->maybe_response != nullptr);
-            }
         }
 
         std::unique_ptr<raw::AttributeList> attributes;
@@ -788,7 +785,6 @@ struct Interface : public Decl {
         SourceLocation name;
         Struct* maybe_request;
         Struct* maybe_response;
-        std::unique_ptr<Type> maybe_error;
     };
 
     Interface(std::unique_ptr<raw::AttributeList> attributes, Name name,
@@ -1070,6 +1066,7 @@ private:
                                        const raw::AttributeList* attributes);
 
     Name NextAnonymousName();
+    Name GeneratedName(const std::string& name);
 
     bool CompileCompoundIdentifier(const raw::CompoundIdentifier* compound_identifier,
                                    SourceLocation location, Name* out_name);
@@ -1092,6 +1089,8 @@ private:
     bool ConsumeStructDeclaration(std::unique_ptr<raw::StructDeclaration> struct_declaration);
     bool ConsumeTableDeclaration(std::unique_ptr<raw::TableDeclaration> table_declaration);
     bool ConsumeUnionDeclaration(std::unique_ptr<raw::UnionDeclaration> union_declaration);
+
+    bool CreateMethodResponse(Struct* in_response, std::unique_ptr<raw::Type> error, Struct** out_response);
 
     bool TypeCanBeConst(const Type* type);
     const Type* TypeResolve(const Type* type);
@@ -1197,6 +1196,9 @@ private:
     Typespace* typespace_;
 
     uint32_t anon_counter_ = 0;
+
+    VirtualSourceFile generated_source_file_{"generated"};
+    std::map<std::string, StringView> generated_names_;
 };
 
 } // namespace flat

@@ -817,7 +817,14 @@ Name Library::NextAnonymousName() {
     std::ostringstream data;
     data << "SomeLongAnonymousPrefix";
     data << anon_counter_++;
-    return Name(this, StringView(data.str()));
+    return GeneratedName(data.str());
+}
+
+Name Library::GeneratedName(const std::string& name) {
+    if (generated_names_.find(name) == generated_names_.end()) {
+        generated_names_.emplace(name, generated_source_file_.AddLine(name));
+    }
+    return Name(this, SourceLocation(generated_names_[name], generated_source_file_));
 }
 
 bool Library::CompileCompoundIdentifier(const raw::CompoundIdentifier* compound_identifier,
@@ -1123,10 +1130,10 @@ bool Library::ConsumeInterfaceDeclaration(
                 return false;
         }
 
+        // TODO(ianloic): desugar errors here.
         std::unique_ptr<Type> maybe_error = nullptr;
         if (method->maybe_error != nullptr) {
-            auto location = method->maybe_error->location();
-            if (!ConsumeType(std::move(method->maybe_error), location, &maybe_error))
+            if (!CreateMethodResponse(maybe_response, std::move(method->maybe_error), &maybe_response))
                 return false;
         }
 
@@ -1134,13 +1141,55 @@ bool Library::ConsumeInterfaceDeclaration(
         methods.emplace_back(std::move(attributes),
                              std::move(ordinal_literal),
                              std::move(method_name), std::move(maybe_request),
-                             std::move(maybe_response), std::move(maybe_error));
+                             std::move(maybe_response));
     }
 
     interface_declarations_.push_back(
         std::make_unique<Interface>(std::move(attributes), std::move(name),
                                     std::move(superinterfaces), std::move(methods)));
     return RegisterDecl(interface_declarations_.back().get());
+}
+
+bool Library::CreateMethodResponse(Struct* in_response, std::unique_ptr<raw::Type> raw_error, Struct** out_response) {
+    in_response->anonymous = false;
+
+    // Get the type of in_response.
+    auto in_response_type = std::make_unique<IdentifierType>(Name(in_response->name.library(), in_response->name.name_part()), types::Nullability::kNonnullable);
+    // Consume the error type.
+    auto location = raw_error->location();
+    std::unique_ptr<Type> error;
+    if (!ConsumeType(std::move(raw_error), location, &error))
+        return false;
+    // TODO(ianloic): validate that error is 32 bits.
+
+    // Make a union containing in_response and error.
+    auto response_name = GeneratedName("response");
+    auto error_name = GeneratedName("err");
+    std::vector<Union::Member> union_members;
+    union_members.emplace_back(std::move(in_response_type), response_name.source_location(), nullptr);
+    union_members.emplace_back(std::move(error), error_name.source_location(), nullptr);
+
+    auto union_name = NextAnonymousName();
+    // TODO(ianloic): create a [Result] attribute
+    union_declarations_.push_back(std::make_unique<Union>(nullptr /* attributes */, std::move(union_name),
+                                                          std::move(union_members)));
+    auto union_decl = union_declarations_.back().get();
+    if (!RegisterDecl(union_decl))
+        return false;
+    auto union_type = std::make_unique<IdentifierType>(Name(union_decl->name.library(), union_decl->name.name_part()), types::Nullability::kNonnullable);
+
+    // Make a struct just containing that union.
+    auto struct_name = NextAnonymousName();
+    std::vector<Struct::Member> struct_members;
+    auto result_name = GeneratedName("result");
+    struct_members.emplace_back(std::move(union_type), result_name.source_location(), nullptr, nullptr);
+    struct_declarations_.push_back(std::make_unique<Struct>(nullptr, std::move(struct_name), std::move(struct_members), true));
+    auto struct_decl = struct_declarations_.back().get();
+    if (!RegisterDecl(struct_decl))
+        return false;
+    *out_response = struct_decl;
+
+    return true;
 }
 
 bool Library::ConsumeParameterList(std::unique_ptr<raw::ParameterList> parameter_list,
